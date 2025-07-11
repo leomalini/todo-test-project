@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { PRIORITIES } from "@/types/task.types";
+import { PRIORITIES, type Task } from "@/types/task.types";
 import {
   Dialog,
   DialogClose,
@@ -36,24 +34,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CheckCircle } from "lucide-react";
+import { useTasks } from "@/contexts/TasksContext";
+import { translatePriority } from "@/utils/translatePriority";
+import { FormSchema, type TaskFormValues } from "@/schemas/task-schema";
 
-export const FormSchema = z.object({
-  title: z.string().min(2, {
-    message: "Title must be at least 2 characters.",
-  }),
-  description: z.string().optional(),
-  priority: z.enum(PRIORITIES),
-});
-
-interface TaskFormProps {
-  onSubmit: (data: TaskFormValues) => void;
-}
-
-export type TaskFormValues = z.infer<typeof FormSchema>;
-
-export function TaskForm({ onSubmit }: TaskFormProps) {
+export function TaskForm() {
   const [open, setOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const { addTask, tasks } = useTasks();
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(FormSchema),
@@ -65,7 +53,16 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
   });
 
   const handleFormSubmit = (data: TaskFormValues) => {
-    onSubmit(data);
+    const newTask: Task = {
+      id: (tasks.length + 1).toString(),
+      title: data.title,
+      priority: data.priority,
+      description: data.description || "",
+      createdAt: new Date(),
+      isCompleted: false,
+    };
+
+    addTask(newTask);
     setSubmitted(true);
 
     setTimeout(() => {
@@ -146,7 +143,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
                               <SelectLabel>Prioridades</SelectLabel>
                               {PRIORITIES.map((priority) => (
                                 <SelectItem key={priority} value={priority}>
-                                  {priority.toUpperCase()}
+                                  {translatePriority(priority)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>

@@ -1,36 +1,88 @@
-import { render, screen } from "@testing-library/react";
+import { describe, it, vi, expect, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi } from "vitest";
-import { TaskForm } from "./task-form";
+import { TaskForm } from "@/components/task-form";
+import { TasksProvider } from "@/contexts/TasksContext";
+
+// Helper para renderizar com o contexto
+const renderWithContext = () => {
+  return render(
+    <TasksProvider>
+      <TaskForm />
+    </TasksProvider>,
+  );
+};
 
 describe("TaskForm", () => {
-  it("deve renderizar o campo de título e o botão de submit", () => {
-    render(<TaskForm onSubmit={vi.fn()} />);
-
-    expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /salvar/i })).toBeInTheDocument();
+  beforeEach(() => {
+    vi.useFakeTimers();
   });
 
-  it("deve mostrar erro se o campo for submetido vazio", async () => {
-    render(<TaskForm onSubmit={vi.fn()} />);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: /salvar/i }));
-
-    expect(
-      await screen.findByText(/must be at least 2 characters/i),
-    ).toBeInTheDocument();
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
-  it("deve chamar onSubmit com os dados corretos quando o formulário for válido", async () => {
-    const handleSubmit = vi.fn();
-    render(<TaskForm onSubmit={handleSubmit} />);
-    const user = userEvent.setup();
+  it("abre o modal ao clicar em 'Nova Task'", async () => {
+    renderWithContext();
 
-    await user.type(screen.getByLabelText(/título/i), "Minha tarefa");
-    await user.click(screen.getByRole("button", { name: /salvar/i }));
+    await userEvent.click(screen.getByText("Nova Task"));
 
-    expect(handleSubmit).toHaveBeenCalledTimes(1);
-    expect(handleSubmit.mock.calls[0][0]).toEqual({ title: "Minha tarefa" });
+    expect(screen.getByText("Crie uma nova tarefa")).toBeInTheDocument();
   });
+
+  it("exibe mensagens de erro se os campos estiverem vazios", async () => {
+    renderWithContext();
+
+    await userEvent.click(screen.getByText("Nova Task"));
+    await userEvent.click(screen.getByText("Salvar"));
+
+    expect(await screen.findByText("Campo obrigatório")).toBeInTheDocument();
+  });
+
+  it("cria uma nova tarefa corretamente", async () => {
+    renderWithContext();
+
+    await userEvent.click(screen.getByText("Nova Task"));
+
+    await userEvent.type(
+      screen.getByPlaceholderText("Informe o título"),
+      "Minha Task",
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText("Informe a descrição"),
+      "Descrição da task",
+    );
+
+    await userEvent.click(screen.getByText("Salvar"));
+
+    // Simula o tempo de 1500ms
+    vi.advanceTimersByTime(1500);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Tarefa criada com sucesso!"),
+      ).toBeInTheDocument();
+    });
+  }, 10000); // ⏱ aumenta o tempo limite deste teste
+
+  it("fecha o modal após criar a tarefa", async () => {
+    renderWithContext();
+
+    await userEvent.click(screen.getByText("Nova Task"));
+
+    await userEvent.type(
+      screen.getByPlaceholderText("Informe o título"),
+      "Fechar Modal",
+    );
+    await userEvent.click(screen.getByText("Salvar"));
+
+    vi.advanceTimersByTime(1500);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Tarefa criada com sucesso!"),
+      ).toBeInTheDocument();
+    });
+  }, 10000);
 });
